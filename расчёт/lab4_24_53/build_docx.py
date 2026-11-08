@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Сборка .docx ЛР №4 (вариант 24 / зачётка 53) из content.blocks.
 
-Оформление повторяет образец `лаба №3.pdf`: A4, Times New Roman 14,
+Оформление повторяет образец `примеры/лаба3/лаба №3.pdf`: A4, Times New Roman 14,
 интервал 1,5, отступ 1,25 см, заголовки разделов жирным по левому краю,
 каждый раздел с новой страницы. Формулы — объекты Word (OMML).
 """
@@ -27,7 +27,8 @@ from mathast import omml_para  # noqa: E402
 
 FONT = "Times New Roman"
 SZ = 14
-OUT = Path(__file__).resolve().parent.parent.parent / "Лабораторная работа №4 (вариант 24, зачётка 53).docx"
+OUT = (Path(__file__).resolve().parent.parent.parent / "лабораторные" / "лаба4"
+       / "Лабораторная работа №4 (вариант 24, зачётка 53).docx")
 
 doc = Document()
 st = doc.styles["Normal"]

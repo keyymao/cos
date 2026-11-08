@@ -22,7 +22,8 @@ from mathast import omml_para  # noqa: E402
 
 FONT = "Times New Roman"
 SZ = 14
-OUT = Path(__file__).resolve().parent.parent.parent / "Лабораторная работа №4 (вариант 12, зачётка 06).docx"
+OUT = (Path(__file__).resolve().parent.parent.parent / "лабораторные" / "лаба4"
+       / "Лабораторная работа №4 (вариант 12, зачётка 06).docx")
 
 doc = Document()
 st = doc.styles["Normal"]

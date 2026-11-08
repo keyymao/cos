@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Построение .pdf из content.blocks (ReportLab, шрифт DejaVu Serif, формулы inline)."""
-import os, matplotlib
+import os
+from pathlib import Path
+
+import matplotlib
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
@@ -125,8 +128,9 @@ def on_page(canvas,doc):
         canvas.drawCentredString(PW/2,BM/2+6,str(doc.page))
         canvas.restoreState()
 
-out='../Лабораторная работа №3 (вариант 12, зачётка 06).pdf'
-doc=BaseDocTemplate(out,pagesize=A4,leftMargin=LM,rightMargin=RM,topMargin=TM,bottomMargin=BM,
+out = (Path(__file__).resolve().parent.parent / 'лабораторные' / 'лаба3'
+       / 'Лабораторная работа №3 (вариант 12, зачётка 06).pdf')
+doc=BaseDocTemplate(str(out),pagesize=A4,leftMargin=LM,rightMargin=RM,topMargin=TM,bottomMargin=BM,
                     title='Лабораторная работа №3 (вариант 12, зачётка 06)',author='студент гр. БРВ2402')
 frame=Frame(LM,BM,FW,PH-TM-BM,id='main',leftPadding=0,rightPadding=0,topPadding=0,bottomPadding=0)
 doc.addPageTemplates([PageTemplate(id='all',frames=[frame],onPage=on_page)])
