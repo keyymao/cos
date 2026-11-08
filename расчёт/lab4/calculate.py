@@ -7,7 +7,7 @@
 
 Запуск:  python3 calculate.py
 Выход:   variant_data_lab4.json, coefficients_lab4.csv,
-         ../../Коэффициенты для Спектр-2 (ЛР4, вариант 12, зачётка 06).txt
+         ../../лабораторные/лаба4/Коэффициенты для Спектр-2 (ЛР4, вариант 12, зачётка 06).txt
 """
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from scipy import signal
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
+LAB_DIR = ROOT / "лабораторные" / "лаба4"
 
 NBR = 12
 ZACHET = "06"
@@ -349,7 +350,7 @@ def write_outputs(data):
         "Точка ровно -40 дБ лежит около 1943,36 Гц; это запас относительно заданной границы ПЗ 1440 Гц.",
         "Схема и графики АЧХ/ИХ выполняются пользователем самостоятельно в «Спектр-2».",
     ]
-    out_txt = ROOT / "Коэффициенты для Спектр-2 (ЛР4, вариант 12, зачётка 06).txt"
+    out_txt = LAB_DIR / "Коэффициенты для Спектр-2 (ЛР4, вариант 12, зачётка 06).txt"
     out_txt.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -382,7 +383,7 @@ def main():
     print("независимая проверка scipy:", data["validation_scipy"]["max_abs_error_a"])
     print("контрольный пример методички: PASS")
     print("saved:", HERE / "variant_data_lab4.json")
-    print("saved:", ROOT / "Коэффициенты для Спектр-2 (ЛР4, вариант 12, зачётка 06).txt")
+    print("saved:", LAB_DIR / "Коэффициенты для Спектр-2 (ЛР4, вариант 12, зачётка 06).txt")
 
 
 if __name__ == "__main__":

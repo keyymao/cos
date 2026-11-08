@@ -7,8 +7,8 @@
 ```bash
 cd расчёт/lab4
 python3 calculate.py     # расчёт, проверки, JSON/CSV/TXT для Спектр-2
-python3 build_docx.py    # отчёт .docx -> корень репозитория
-python3 build_pdf.py     # отчёт .pdf  -> корень репозитория
+python3 build_docx.py    # отчёт .docx -> ../../лабораторные/лаба4/
+python3 build_pdf.py     # отчёт .pdf  -> ../../лабораторные/лаба4/
 ```
 
 ## Зависимости

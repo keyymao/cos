@@ -3,7 +3,7 @@
 """Сборка .pdf ЛР №4 (вариант 24 / зачётка 53) из content.blocks.
 
 Тот же набор пунктов и то же оформление, что в build_docx.py.
-Крупные дроби рисуются «в две строки» как в образце `лаба №3.pdf`.
+Крупные дроби рисуются «в две строки» как в образце `примеры/лаба3/лаба №3.pdf`.
 """
 from __future__ import annotations
 
@@ -209,7 +209,8 @@ def on_page(canvas, doc):
         canvas.restoreState()
 
 
-OUT = Path(__file__).resolve().parent.parent.parent / "Лабораторная работа №4 (вариант 24, зачётка 53).pdf"
+OUT = (Path(__file__).resolve().parent.parent.parent / "лабораторные" / "лаба4"
+       / "Лабораторная работа №4 (вариант 24, зачётка 53).pdf")
 doc = BaseDocTemplate(
     str(OUT), pagesize=A4, leftMargin=LM, rightMargin=RM, topMargin=TM, bottomMargin=BM,
     title="Лабораторная работа №4 (вариант 24, зачётка 53)", author="студент гр. БРВ2402",

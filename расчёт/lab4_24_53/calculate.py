@@ -28,6 +28,7 @@ from scipy.optimize import brentq
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
+LAB_DIR = ROOT / "лабораторные" / "лаба4"
 
 # ---------------------------------------------------------------- исходные данные
 NBR, ZACH = 24, "53"
@@ -211,7 +212,7 @@ def main():
     txt.append(f"  ЛР4: p = {ru(C)}*(1-z^-1)/(1+z^-1); K = {ru(K_report, 8)};")
     txt.append("        a1 = " + " / ".join(ru(x) for x in a1) + ";  a2 = " + " / ".join(ru(x) for x in a2))
     txt.append("  => схема собирается заново, скриншоты АЧХ отличаются (граница ПП сдвинута).")
-    (ROOT / "Коэффициенты для Спектр-2 (ЛР4, вариант 24, зачётка 53).txt").write_text(
+    (LAB_DIR / "Коэффициенты для Спектр-2 (ЛР4, вариант 24, зачётка 53).txt").write_text(
         "\n".join(txt) + "\n", encoding="utf-8")
 
     # ---- 7. Печать сводки ---------------------------------------------------
