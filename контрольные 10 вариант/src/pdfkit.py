@@ -204,10 +204,15 @@ class PdfReport:
             Paragraph(_markup(b["caption"]), fcap),
         ]))
 
-    def code(self, text: str):
+    def code(self, text: str, per_page: int = 58):
+        """Листинг: страница целиком отдаётся коду, чтобы не оставалось пустых листов."""
         lines = text.rstrip("\n").split("\n")
-        for i in range(0, len(lines), 95):
-            chunk = "\n".join(line[:120] for line in lines[i:i + 95])
+        n_pages = max(1, -(-len(lines) // per_page))
+        step = -(-len(lines) // n_pages)          # ровные страницы без «хвостиков»
+        for i, start in enumerate(range(0, len(lines), step)):
+            chunk = "\n".join(line[:120] for line in lines[start:start + step])
+            if i:
+                self.story.append(PageBreak())
             self.story.append(Preformatted(chunk, code, maxLineLength=118))
 
     def render(self):
