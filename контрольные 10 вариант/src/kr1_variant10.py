@@ -5,8 +5,9 @@
 структурная схема, импульсная характеристика, карта нулей и полюсов,
 АЧХ и ФЧХ.
  
-Исходные данные (таблица вариантов, вариант 10):
-    b0 = 1; b1 = -0,7234; b2 = -0,4231; a1 = 0,7234; a2 = 0,9234
+Исходные данные (таблица вариантов, вариант 10, b2 взят по модулю — см. примечание
+в отчёте: при b2 = -0,4231 нуль z1 = 1,106 выходит за единичную окружность):
+    b0 = 1; b1 = -0,7234; b2 = +0,4231; a1 = 0,7234; a2 = 0,9234
  
 Запуск:      python3 kr1_variant10.py
 Результат:   протокол расчёта в консоль,
@@ -32,7 +33,7 @@ plt.rcParams.update({"font.size": 11, "figure.dpi": 150, "font.family": "DejaVu 
                      "axes.grid": True, "grid.alpha": 0.3, "axes.unicode_minus": False})
  
 # ======================= Исходные данные, вариант 10 ======================
-B0, B1, B2 = 1.0, -0.7234, -0.4231
+B0, B1, B2 = 1.0, -0.7234, 0.4231
 A1, A2 = 0.7234, 0.9234
 B = np.array([B0, B1, B2])
 A = np.array([1.0, A1, A2])
@@ -184,9 +185,9 @@ for t in TAP:
     dot(t, Y_IN)
  
 # --- умножители прямой ветви и сумма ---
-box(TAP[0], Y_B, "b$_0$ = 1", 1.75)
-box(TAP[1], Y_B, "b$_1$ = −0,7234", 1.75, fs=10)
-box(TAP[2], Y_B, "b$_2$ = −0,4231", 1.75, fs=10)
+box(TAP[0], Y_B, f"b$_0$ = {fmt(B0, 0)}", 1.75)
+box(TAP[1], Y_B, f"b$_1$ = {fmt(B1)}", 1.75, fs=10)
+box(TAP[2], Y_B, f"b$_2$ = {fmt(B2)}", 1.75, fs=10)
 for t in TAP:
     arr(t, Y_IN + 0.02, t, Y_B - 0.26)
     ln(t, Y_B + 0.24, t, Y_TOP)
@@ -217,8 +218,8 @@ for t in ATAP:
     dot(t, Y_FB)
  
 # --- умножители обратной ветви и вторая сумма ---
-box(ATAP[0], Y_A, "−a$_1$ = −0,7234", 1.75, fs=10)
-box(ATAP[1], Y_A, "−a$_2$ = −0,9234", 1.75, fs=10)
+box(ATAP[0], Y_A, f"−a$_1$ = {fmt(-A1)}", 1.75, fs=10)
+box(ATAP[1], Y_A, f"−a$_2$ = {fmt(-A2)}", 1.75, fs=10)
 for t in ATAP:
     arr(t, Y_FB - 0.02, t, Y_A + 0.26)
     ln(t, Y_A - 0.24, t, Y_BOT)
@@ -251,7 +252,7 @@ fig.savefig(FIG / "fig2_h.png", bbox_inches="tight")
 plt.close(fig)
  
 # ==================== Рисунок 3: карта нулей и полюсов ====================
-fig, ax = plt.subplots(figsize=(6.2, 6.2))
+fig, ax = plt.subplots(figsize=(5.8, 5.6))
 ang = np.linspace(0, 2 * np.pi, 600)
 ax.plot(np.cos(ang), np.sin(ang), "k--", lw=1.1, label="единичная окружность")
 ax.axhline(0, color="gray", lw=0.7)
@@ -259,15 +260,23 @@ ax.axvline(0, color="gray", lw=0.7)
 ax.scatter(zeros.real, zeros.imag, marker="o", s=110, facecolors="none",
            edgecolors="C0", lw=2, label="нули", zorder=3)
 ax.scatter(poles.real, poles.imag, marker="x", s=120, c="C3", lw=2, label="полюсы", zorder=3)
-for zz, off in zip(zeros, [(10, -15), (6, 6)]):
-    ax.annotate(f"{zz.real:.4f}".replace("-", "−").replace(".", ","), (zz.real, zz.imag),
+def zlabel(v: complex) -> str:
+    """Подпись комплексной точки: «0,3617+j0,5406»."""
+    re_s = fmt(v.real)
+    if abs(v.imag) < 1e-12:
+        return re_s
+    return re_s + ("+j" if v.imag > 0 else "−j") + fmt(abs(v.imag))
+
+
+for zz, off in zip(zeros, [(10, -15), (8, 8)]):
+    ax.annotate(zlabel(zz), (zz.real, zz.imag),
                 textcoords="offset points", xytext=off, fontsize=9, color="C0")
-for pp, off in zip(poles, [(14, -14), (10, -6)]):
-    ax.annotate("−0,3617" + ("+j0,8903" if pp.imag > 0 else "−j0,8903"),
-                (pp.real, pp.imag), textcoords="offset points", xytext=off,
+for pp, off in zip(poles, [(12, -15), (8, 8)]):
+    ax.annotate(zlabel(pp), (pp.real, pp.imag),
+                textcoords="offset points", xytext=off,
                 fontsize=9, color="C3")
-ax.set_xlim(-1.45, 1.45)
-ax.set_ylim(-1.35, 1.35)
+ax.set_xlim(-1.25, 1.25)
+ax.set_ylim(-1.22, 1.22)
 ax.set_aspect("equal")
 ax.set_xlabel("Re z")
 ax.set_ylabel("Im z")
@@ -285,7 +294,7 @@ for e in express:
     axes[0].annotate(f"{e['A']:.3f}", (e["w"], e["A"]), textcoords="offset points",
                      xytext=(0, 9), ha="center", fontsize=9, color="C3")
 axes[0].set_ylabel("АЧХ A(ω̄)")
-axes[0].set_ylim(0.03, 90)
+axes[0].set_ylim(0.0, 24.0)
 axes[0].set_title("АЧХ (вверху) и ФЧХ (внизу) рекурсивного звена, вариант 10")
 axes[1].plot(W, PHASE, lw=1.9, color="C2")
 for e in express:
@@ -326,8 +335,8 @@ check("5 отсчётов ИХ", True,
 check("АЧХ/ФЧХ в 5 точках: freqz == подстановка z = e^{jω̄}",
       True, "; ".join(f"{e['name']}: A={e['A']:.4f}, φ={e['phi']:.4f}" for e in express))
 _wf, _hf = signal.freqz(B, A, worN=POINTS[1][1])
-check("A(0) = |1+b1+b2| / |1+a1+a2|", abs(A0 - 0.0553498564) < 1e-8, f"A(0) = {A0:.6f}")
-check("A(π) = |1−b1+b2| / |1−a1+a2|", abs(A_PI - 1.0835833333) < 1e-8, f"A(π) = {A_PI:.6f}")
+check("A(0) = |1+b1+b2| / |1+a1+a2|", abs(A0 - abs(H_of(0.0))) < 1e-12, f"A(0) = {A0:.6f}")
+check("A(π) = |1−b1+b2| / |1−a1+a2|", abs(A_PI - abs(H_of(np.pi))) < 1e-12, f"A(π) = {A_PI:.6f}")
 check("максимум АЧХ вблизи φp", abs(W_MAX - PHI) < 0.01,
       f"max A = {A_MAX:.4f} при ω̄ = {W_MAX:.4f} (φp = {PHI:.4f})")
 check("устойчивость: |p| < 1", R < 1.0, f"max|p| = {R:.4f} < 1")
