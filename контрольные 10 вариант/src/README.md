@@ -13,7 +13,8 @@ cd "контрольные 10 вариант/src"
 python3 kr1_variant10.py
 python3 make_kr1_docx.py          # -> ../Контрольная 1.docx и .pdf
 
-# КР2: входной WAV, обработка, 7 рисунков, затем сборка документов
+# КР2: входной WAV, структурная схема, обработка, затем сборка документов
+python3 kr2/make_architecture_fig.py  # figures/fig_architecture.png (рис. 1)
 python3 kr2/make_input_signal.py
 python3 kr2/kr2_signal_system.py --in kr2/kr2_input.wav --out kr2/kr2_output.wav
 python3 make_kr2_docx.py          # -> ../Контрольная 2.docx и .pdf
@@ -30,7 +31,8 @@ python3 make_kr2_docx.py          # -> ../Контрольная 2.docx и .pdf
 | `kr1_results.json` | все числа КР1 — единственный источник данных для отчёта |
 | `make_kr1_docx.py` | содержание КР1 и сборка `.docx` + `.pdf` |
 | `kr2/make_input_signal.py` | генератор входного WAV (речь + помеха 1500/3000 Гц) |
-| `kr2/kr2_signal_system.py` | система: анализ → эквалайзер → режекция → синтез WAV |
+| `kr2/kr2_signal_system.py` | система: анализ → эквалайзер → режекция → синтез WAV; функции рисования помечены `# >>>plots` … `# <<<plots` и в листинг приложения не попадают |
+| `kr2/make_architecture_fig.py` | рис. 1 — структурная схема системы (fig_architecture.png) |
 | `kr2/kr2_results.json` | измеренные значения КР2 и результаты проверок |
 | `make_kr2_docx.py` | содержание КР2 и сборка `.docx` + `.pdf` |
 | `docblocks.py` | блоки документа (общее содержание для обоих форматов) |

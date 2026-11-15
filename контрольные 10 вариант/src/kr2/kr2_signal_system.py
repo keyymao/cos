@@ -19,18 +19,22 @@ import argparse
 import json
 from pathlib import Path
  
+# >>>plots
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+# <<<plots
 import numpy as np
 from scipy import signal
 from scipy.io import wavfile
  
 HERE = Path(__file__).resolve().parent
 FIG = HERE / "figures"
+# >>>plots
 FIG.mkdir(exist_ok=True)
 plt.rcParams.update({"font.size": 11, "figure.dpi": 150, "font.family": "DejaVu Sans",
                      "axes.grid": True, "grid.alpha": 0.3, "axes.unicode_minus": False})
+# <<<plots
  
 # ------------------------- параметры системы ------------------------------
 EQ_BANDS = [(0.0, 1000.0, +6.0),        # НЧ: подъём +6 дБ
@@ -43,7 +47,9 @@ TONE_EXCESS_DB = 12.0                   # требуемое превышени�
 STFT_NPERSEG = 512                      # окно спектрограммы
 STFT_OVERLAP = 384                      # перекрытие 75 %
  
+# >>>plots
 C_BLUE, C_RED, C_GREEN = "#2f6fdb", "#d62728", "#2ca02c"
+# <<<plots
  
  
 # ============================ 1. ввод / вывод =============================
@@ -212,6 +218,7 @@ def snr_out_of_tone_db(x: np.ndarray, fs: int, f0: float, half: float = 200.0) -
     return float(10 * np.log10(np.sum(p[speech]) / (np.sum(p[tone]) + 1e-20)))
  
  
+# >>>plots
 # ============================== рисунки ===================================
 def _save(fig, name: str):
     fig.tight_layout()
@@ -322,6 +329,7 @@ def plot_compare(fs: int, x_in, y, f0, name="fig3_2_spectra.png"):
     _save(fig, name)
  
  
+# <<<plots
 # =============================== главное ==================================
 def main(argv=None) -> dict:
     ap = argparse.ArgumentParser(
@@ -345,10 +353,12 @@ def main(argv=None) -> dict:
  
     # --- 1. анализ ---
     det = detect_tone(x, fs)
+    # >>>plots
     plot_spectrum(fs, x, det["f0"])
     plot_specgram(fs, x, "Спектрограмма входного сигнала (окно 512, перекрытие 75 %)",
                   "fig1_2_specgram_in.png")
     plot_eq_curve(fs)
+    # <<<plots
  
     # --- 2. эквалайзер ---
     x_eq = apply_eq(x, fs)
@@ -361,11 +371,13 @@ def main(argv=None) -> dict:
     y, notch_params = suppress_tones(x_eq, fs, count=2)
     tone_in = tone_level_db(x, fs, notch_params[0]["f0"] if notch_params else 1500.0)
     tone_after = tone_level_db(y, fs, notch_params[0]["f0"] if notch_params else 1500.0)
+    # >>>plots
     plot_notch(fs, notch_params[0]["f0"] if notch_params else 1500.0)
     plot_compare(fs, x, y, notch_params[0]["f0"] if notch_params else 1500.0)
     plot_specgram(fs, y, "Спектрограмма выходного сигнала (помеха удалена)",
                   "fig3_3_specgram_out.png")
     plot_wave(fs, x, x_eq, y)
+    # <<<plots
  
     # --- 4. синтез ---
     info = write_wav(args.out, fs, y)
