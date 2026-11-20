@@ -18,12 +18,15 @@ p = ctg(π F1/Fд) · (1 − z⁻¹)/(1 + z⁻¹) = 1,96261 · (1 − z⁻¹)/(1
 
 ```bash
 cd расчёт/lab4_24_53
-python3 calculate.py     # расчёт + проверки -> JSON, TXT для «Спектр-2»
-python3 build_docx.py    # отчёт .docx -> ../../лабораторные/текущие/лаба4/
-python3 build_pdf.py     # отчёт .pdf  -> ../../лабораторные/текущие/лаба4/
+python3 calculate.py          # расчёт + проверки -> JSON, TXT для «Спектр-2»
+python3 build_docx.py         # отчёт .docx -> ../../лабораторные/текущие/лаба4/
+python3 build_pdf.py          # отчёт .pdf  -> ../../лабораторные/текущие/лаба4/
+python3 annotate_report.py    # отметки на АЧХ + задание №3 -> ../../лабораторные/исправленые/лаба4/
 ```
 
-Зависимости: `numpy scipy python-docx reportlab matplotlib lxml`.
+`annotate_report.py` берёт загруженный отчёт из `лабораторные/текущие/лаба4/`,
+не изменяет его и создаёт отдельную исправленную копию. Для него достаточно
+Pillow; остальные скрипты используют `numpy scipy python-docx reportlab matplotlib lxml`.
 Мини-AST формул (`mathast.py`) используется из родительской папки `расчёт/`.
 
 ## Ключевые результаты
