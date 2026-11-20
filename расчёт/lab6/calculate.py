@@ -5,7 +5,7 @@
 Запуск из любого каталога: python3 расчёт/lab6/calculate.py
 Результаты:
   * variant_data_lab6.json и coefficients_lab6.csv — рядом со скриптом;
-  * TXT с коэффициентами — в лабораторные/лаба6/.
+  * TXT с коэффициентами — в лабораторные/текущие/лаба6/.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from scipy import signal, special
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-LAB_DIR = ROOT / "лабораторные" / "лаба6"
+LAB_DIR = ROOT / "лабораторные" / "текущие" / "лаба6"
 
 NBR = 12
 ZACHET = "06"

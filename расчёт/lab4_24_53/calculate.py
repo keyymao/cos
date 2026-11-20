@@ -28,7 +28,7 @@ from scipy.optimize import brentq
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-LAB_DIR = ROOT / "лабораторные" / "лаба4"
+LAB_DIR = ROOT / "лабораторные" / "текущие" / "лаба4"
 
 # ---------------------------------------------------------------- исходные данные
 NBR, ZACH = 24, "53"

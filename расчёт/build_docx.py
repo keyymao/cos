@@ -178,7 +178,7 @@ for b in content.blocks:
     elif ty=='figure': figure(b['path'],b['caption'],b['width'])
     elif ty=='pagebreak': pagebreak()
 
-out = (Path(__file__).resolve().parent.parent / 'лабораторные' / 'лаба3'
+out = (Path(__file__).resolve().parent.parent / 'лабораторные' / 'текущие' / 'лаба3'
        / 'Лабораторная работа №3 (вариант 12, зачётка 06).docx')
 doc.save(out)
 print('saved', out)

@@ -148,7 +148,7 @@ def on_page(canvas,doc):
         canvas.drawCentredString(PW/2,BM/2+6,str(doc.page))
         canvas.restoreState()
 
-out = (Path(__file__).resolve().parent.parent.parent / 'лабораторные' / 'лаба7'
+out = (Path(__file__).resolve().parent.parent.parent / 'лабораторные' / 'текущие' / 'лаба7'
        / 'Лабораторная работа №7 (вариант 24, зачётка 53).pdf')
 doc=BaseDocTemplate(str(out),pagesize=A4,leftMargin=LM,rightMargin=RM,topMargin=TM,bottomMargin=BM,
                     title='Лабораторная работа №7 (вариант 24, зачётка 53)',author='студент гр. БРВ2402')
