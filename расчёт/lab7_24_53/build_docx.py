@@ -216,7 +216,7 @@ cp_props.title='Лабораторная работа №7 (вариант 24, �
 cp_props.subject='Цифровая обработка сигналов'
 cp_props.author='студент гр. БРВ2402'
 
-out = (Path(__file__).resolve().parent.parent.parent / 'лабораторные' / 'лаба7'
+out = (Path(__file__).resolve().parent.parent.parent / 'лабораторные' / 'текущие' / 'лаба7'
        / 'Лабораторная работа №7 (вариант 24, зачётка 53).docx')
 doc.save(out)
 print('saved', out)

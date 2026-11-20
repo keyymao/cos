@@ -259,7 +259,7 @@ def on_page(canvas, doc):
         canvas.restoreState()
 
 
-OUT = (Path(__file__).resolve().parent.parent.parent / "лабораторные" / "лаба6"
+OUT = (Path(__file__).resolve().parent.parent.parent / "лабораторные" / "текущие" / "лаба6"
        / "Лабораторная работа №6 (вариант 24, зачётка 53).pdf")
 doc = BaseDocTemplate(
     str(OUT), pagesize=A4, leftMargin=LM, rightMargin=RM, topMargin=TM, bottomMargin=BM,

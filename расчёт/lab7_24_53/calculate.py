@@ -16,7 +16,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-LAB_DIR = ROOT / "лабораторные" / "лаба7"
+LAB_DIR = ROOT / "лабораторные" / "текущие" / "лаба7"
 
 NBR = 24
 ZACHET = "53"

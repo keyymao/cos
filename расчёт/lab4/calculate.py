@@ -7,7 +7,7 @@
 
 Запуск:  python3 calculate.py
 Выход:   variant_data_lab4.json, coefficients_lab4.csv,
-         ../../лабораторные/лаба4/Коэффициенты для Спектр-2 (ЛР4, вариант 12, зачётка 06).txt
+         ../../лабораторные/текущие/лаба4/Коэффициенты для Спектр-2 (ЛР4, вариант 12, зачётка 06).txt
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from scipy import signal
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-LAB_DIR = ROOT / "лабораторные" / "лаба4"
+LAB_DIR = ROOT / "лабораторные" / "текущие" / "лаба4"
 
 NBR = 12
 ZACHET = "06"
