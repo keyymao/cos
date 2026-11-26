@@ -4,10 +4,10 @@
 Скрипт создаёт отдельную исправленную копию, не изменяя загруженный DOCX:
 
 1. рассчитывает фактические границы ПП/ПЗ по уровням 0,95 и 0,01;
-2. размечает экспериментальную АЧХ цветными областями и границами;
+2. аккуратно размечает экспериментальную АЧХ линиями без перекрытия кривой;
 3. учитывает, что скриншот «Спектр-2» снят при Fд ≈ 48 кГц, тогда как
    домашний расчёт выполнен для Fд = 10600 Гц;
-4. добавляет лабораторные задания №3 и №4 с таблицами сравнения;
+4. добавляет лабораторные задания №3 и №4 в компактном текстовом виде;
 5. уточняет подписи экспериментальных ИХ и АЧХ и дополняет вывод.
 
 Зависимости: numpy scipy pillow python-docx.
@@ -19,16 +19,14 @@ import io
 import json
 import math
 import shutil
-from hashlib import sha256
 import tempfile
-from copy import deepcopy
+from hashlib import sha256
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import numpy as np
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, Twips
 from docx.text.paragraph import Paragraph
@@ -83,7 +81,6 @@ STOP_MAX = float(DATA["check"]["stop_max"])
 STOP_MAX_F = float(DATA["check"]["stop_max_frequency"])
 PASS_MIN = float(DATA["check"]["pass_min"])
 PASS_MAX = float(DATA["check"]["pass_max"])
-PASS_MAX_F = float(DATA["check"]["pass_max_frequency"])
 TRANSITION_SPEC = F1 - F3
 TRANSITION_REAL = F_PASS_REAL - F_STOP_REAL
 TRANSITION_MARGIN = TRANSITION_SPEC - TRANSITION_REAL
@@ -94,7 +91,6 @@ ALT_SUM_B = float(np.sum(B * (-1.0) ** np.arange(B.size)))
 # Для текста отчёта график читается примерно до 10 Гц.
 F_STOP_TXT = round(F_STOP_REAL, -1)      # 1010 Гц
 F_PASS_TXT = round(F_PASS_REAL, -1)      # 2360 Гц
-D_STOP_TXT = round(F_STOP_REAL - F3)     # +2 Гц
 D_PASS_TXT = round(F_PASS_REAL - F1)     # −160 Гц
 
 
@@ -115,10 +111,7 @@ SCREEN_SCALE = SCREEN_FD / FD
 SCREEN_CURSOR_HZ = 11086.0
 SCREEN_CURSOR_X = 945
 SCREEN_X_RIGHT = 1247
-SCREEN_VISIBLE_RIGHT_HZ = SCREEN_X_RIGHT / SCREEN_CURSOR_X * SCREEN_CURSOR_HZ
-DESIGN_VISIBLE_RIGHT_HZ = SCREEN_VISIBLE_RIGHT_HZ / SCREEN_SCALE
 
-Y_TOP = 31
 Y_BOT = 882
 Y_REF = 250.04              # максимум АЧХ в ПП по аппроксимации границы заливки
 PX_PER_DB = 5.868            # большая клетка 10 дБ ≈ 58,68 пикселя
@@ -126,7 +119,6 @@ PX_PER_DB = 5.868            # большая клетка 10 дБ ≈ 58,68 п�
 BLUE = (0, 92, 184, 255)
 RED = (198, 40, 40, 255)
 GRAY = (75, 85, 95, 255)
-DARK = (30, 40, 50, 255)
 WHITE = (255, 255, 255, 242)
 
 
@@ -150,10 +142,7 @@ X_FC = fx(FC)
 X_F_STOP_REAL = fx(F_STOP_REAL)
 X_F_PASS_REAL = fx(F_PASS_REAL)
 Y_095 = dy(-20.0 * math.log10(PASS_LEVEL))
-Y_105 = dy(-20.0 * math.log10(1.0 + DATA["delta1"]))
 Y_40 = dy(40.0)
-Y_F3_CURVE = dy(A_AT_F3)
-Y_F1_CURVE = dy(A_AT_F1)
 Y_FC_CURVE = dy(A_AT_FC)
 
 
@@ -188,19 +177,30 @@ def dashed_line(draw, xy, *, fill, width=4, dash=18, gap=10):
             y += dash + gap
 
 
-def label_box(draw, position, text, *, color, text_font, padding=10, align="left"):
-    x, y = position
-    bbox = draw.multiline_textbbox((x, y), text, font=text_font, spacing=6, align=align)
-    box = (bbox[0] - padding, bbox[1] - padding, bbox[2] + padding, bbox[3] + padding)
-    draw.rounded_rectangle(box, radius=10, fill=WHITE, outline=color, width=3)
-    draw.multiline_text((x, y), text, font=text_font, fill=color, spacing=6, align=align)
-    return box
-
-
-def connector(draw, start, end, *, color, width=3):
-    x1, y1 = start
-    x2, y2 = end
-    draw.line((x1, y1, x2, y1, x2, y2), fill=color, width=width)
+def plain_label(
+    draw,
+    position,
+    text,
+    *,
+    color,
+    text_font,
+    anchor="la",
+    align="left",
+    spacing=4,
+    stroke=3,
+):
+    """Подпись без рамки с тонким белым ореолом, как в предыдущей работе."""
+    draw.multiline_text(
+        position,
+        text,
+        font=text_font,
+        fill=color,
+        anchor=anchor,
+        align=align,
+        spacing=spacing,
+        stroke_width=stroke,
+        stroke_fill=WHITE,
+    )
 
 
 def marker(draw, x, y, color, radius=8):
@@ -225,113 +225,85 @@ def mark_amplitude_response(source: bytes) -> bytes:
     layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
 
-    # Полосы по техническому заданию: для ФВЧ ПЗ слева, ПП справа.
-    draw.rectangle((0, Y_TOP, X_F3, Y_BOT), fill=(198, 40, 40, 43))
-    draw.rectangle((X_F1, Y_TOP, SCREEN_X_RIGHT, Y_BOT), fill=(0, 92, 184, 46))
-    draw.rectangle((X_F3, Y_TOP, X_F1, Y_BOT), fill=(75, 85, 95, 20))
-    draw.rectangle((0, Y_40, X_F3, Y_BOT), fill=(198, 40, 40, 42))
-    draw.rectangle((X_F1, Y_105, SCREEN_X_RIGHT, Y_095), fill=(0, 92, 184, 105))
+    # Полосы показаны только короткими цветными линиями в свободной верхней части:
+    # так разметка остаётся заметной, но не закрывает исходную кривую.
+    band_y = 100
+    draw.line((0, band_y, X_F3, band_y), fill=RED, width=6)
+    double_arrow(draw, X_F3, X_F1, band_y, color=GRAY, width=3, head=11)
+    draw.line((X_F1, band_y, SCREEN_X_RIGHT, band_y), fill=BLUE, width=6)
 
-    # Толстые пунктиры — заданные F₃/F₁; тонкие — фактические границы допусков.
-    dashed_line(draw, (X_F3, Y_TOP, X_F3, Y_BOT), fill=RED, width=5)
-    dashed_line(draw, (X_F1, Y_TOP, X_F1, Y_BOT), fill=BLUE, width=5)
-    if abs(X_F_STOP_REAL - X_F3) > 2:
-        dashed_line(draw, (X_F_STOP_REAL, Y_TOP, X_F_STOP_REAL, Y_BOT),
-                    fill=RED, width=3, dash=12, gap=8)
-    dashed_line(draw, (X_F_PASS_REAL, Y_TOP, X_F_PASS_REAL, Y_BOT),
-                fill=BLUE, width=3, dash=12, gap=8)
-    dashed_line(draw, (X_FC, Y_TOP, X_FC, Y_BOT),
-                fill=GRAY, width=3, dash=12, gap=8)
+    # Сплошные линии — фактические границы по уровням, пунктир — F₁ по ТЗ и Fc.
+    draw.line((X_F_STOP_REAL, 120, X_F_STOP_REAL, Y_BOT), fill=RED, width=5)
+    draw.line((X_F_PASS_REAL, 120, X_F_PASS_REAL, Y_BOT), fill=BLUE, width=5)
+    dashed_line(draw, (X_F1, 120, X_F1, Y_BOT), fill=BLUE, width=3, dash=14, gap=9)
+    dashed_line(draw, (X_FC, 120, X_FC, Y_BOT), fill=GRAY, width=3, dash=12, gap=9)
 
     # Контрольные уровни относительно максимума АЧХ в ПП.
-    dashed_line(draw, (0, Y_40, X_F_STOP_REAL, Y_40),
-                fill=RED, width=4, dash=17, gap=10)
-    dashed_line(draw, (X_F_PASS_REAL, Y_095, SCREEN_X_RIGHT, Y_095),
-                fill=BLUE, width=4, dash=17, gap=10)
+    draw.line((0, Y_40, X_F_STOP_REAL, Y_40), fill=RED, width=4)
+    draw.line((X_F_PASS_REAL, Y_095, SCREEN_X_RIGHT, Y_095), fill=BLUE, width=4)
 
-    marker(draw, X_F3, Y_F3_CURVE, RED, radius=7)
     marker(draw, X_F_STOP_REAL, Y_40, RED, radius=7)
     marker(draw, X_FC, Y_FC_CURVE, GRAY, radius=7)
     marker(draw, X_F_PASS_REAL, Y_095, BLUE, radius=7)
-    marker(draw, X_F1, Y_F1_CURVE, BLUE, radius=7)
 
-    f_band = font(21, bold=True)
-    f_small = font(18, bold=True)
-    f_note = font(16)
+    f_band = font(19, bold=True)
+    f_value = font(18, bold=True)
 
-    label_box(
+    plain_label(
         draw,
-        (18, 67),
-        "ПЗ: 0…1005 Гц\n|H| ≤ 0,01  (a ≥ 40 дБ)",
+        ((X_F3 + 0) // 2, 67),
+        "ПЗ  0…1005 Гц",
         color=RED,
         text_font=f_band,
+        anchor="mm",
+        align="center",
     )
-    label_box(
+    plain_label(
         draw,
-        (420, 67),
-        "Переходная полоса\n1005…2520 Гц",
+        ((X_F3 + X_F1) // 2, 67),
+        "переходная  1005…2520 Гц",
         color=GRAY,
-        text_font=f_small,
+        text_font=font(17, bold=True),
+        anchor="mm",
+        align="center",
     )
-    label_box(
+    plain_label(
         draw,
-        (945, 67),
-        "ПП: f ≥ 2520 Гц\n0,95 ≤ |H| ≤ 1,05",
+        ((X_F1 + SCREEN_X_RIGHT) // 2, 67),
+        "ПП  f ≥ 2520 Гц",
         color=BLUE,
         text_font=f_band,
+        anchor="mm",
+        align="center",
     )
-    double_arrow(draw, X_F3, X_F1, 175, color=GRAY)
 
-    box_stop = label_box(
+    # Только три короткие подписи у контрольных точек — без рамок и выносок.
+    plain_label(
         draw,
-        (64, 385),
-        "f₃ ≈ 1007 Гц\nуровень 0,01\n(на экране ≈ 4,56 кГц)",
+        (255, 430),
+        "f₃ ≈ 1007 Гц\n|H| = 0,01",
         color=RED,
-        text_font=f_small,
+        text_font=f_value,
+        anchor="mm",
+        align="center",
     )
-    connector(
+    plain_label(
         draw,
-        (box_stop[2], (box_stop[1] + box_stop[3]) // 2),
-        (X_F_STOP_REAL, Y_40),
-        color=RED,
-    )
-
-    box_fc = label_box(
-        draw,
-        (445, 330),
-        "Fc = 1762,5 Гц\n|H| ≈ 0,5\n(на экране ≈ 7,98 кГц)",
+        (X_FC, 205),
+        "Fc = 1762,5 Гц",
         color=GRAY,
-        text_font=f_small,
+        text_font=f_value,
+        anchor="mm",
+        align="center",
     )
-    connector(
+    plain_label(
         draw,
-        (box_fc[2], (box_fc[1] + box_fc[3]) // 2),
-        (X_FC, Y_FC_CURVE),
-        color=GRAY,
-    )
-
-    box_pass = label_box(
-        draw,
-        (760, 345),
-        "f₁ ≈ 2360 Гц\nуровень 0,95\n(на экране ≈ 10,69 кГц)",
+        (1065, 185),
+        "f₁ ≈ 2360 Гц   |H| = 0,95",
         color=BLUE,
-        text_font=f_small,
-    )
-    connector(
-        draw,
-        (box_pass[2], (box_pass[1] + box_pass[3]) // 2),
-        (X_F_PASS_REAL, Y_095),
-        color=BLUE,
-    )
-
-    label_box(
-        draw,
-        (18, 752),
-        "Важно: скриншот снят при Fд ≈ 48 кГц (зелёный курсор 11,086 кГц),\n"
-        "а домашний расчёт выполнен для Fд = 10600 Гц. Для сравнения частоты\n"
-        "шкалы разделены на 48000/10600 ≈ 4,528; видимое окно соответствует 0…3230 Гц.",
-        color=DARK,
-        text_font=f_note,
+        text_font=f_value,
+        anchor="mm",
+        align="center",
     )
 
     result = Image.alpha_composite(image, layer).convert("RGB")
@@ -343,67 +315,6 @@ def mark_amplitude_response(source: bytes) -> bytes:
 # ---------------------------------------------------------------------------
 # Правка DOCX
 # ---------------------------------------------------------------------------
-
-
-def shade_cell(cell, fill="E8E8E8"):
-    tc_pr = cell._tc.get_or_add_tcPr()
-    shd = OxmlElement("w:shd")
-    shd.set(qn("w:val"), "clear")
-    shd.set(qn("w:color"), "auto")
-    shd.set(qn("w:fill"), fill)
-    tc_pr.append(shd)
-
-
-def set_repeat_table_header(row) -> None:
-    """Повторяет строку заголовка, если таблица всё же переходит на новую страницу."""
-    tr_pr = row._tr.get_or_add_trPr()
-    header = OxmlElement("w:tblHeader")
-    header.set(qn("w:val"), "true")
-    tr_pr.append(header)
-
-
-def prevent_row_split(row) -> None:
-    """Не допускает разрыва одной строки таблицы между страницами."""
-    tr_pr = row._tr.get_or_add_trPr()
-    no_split = OxmlElement("w:cantSplit")
-    no_split.set(qn("w:val"), "true")
-    tr_pr.append(no_split)
-
-
-def keep_small_table_together(table) -> None:
-    """Сохраняет компактную сравнительную таблицу единым блоком."""
-    set_repeat_table_header(table.rows[0])
-    for row_index, row in enumerate(table.rows):
-        prevent_row_split(row)
-        if row_index < len(table.rows) - 1:
-            for cell in row.cells:
-                for paragraph in cell.paragraphs:
-                    paragraph.paragraph_format.keep_with_next = True
-
-
-def make_table(doc, rows, widths):
-    table = doc.add_table(rows=len(rows), cols=len(rows[0]))
-    # Повторяем оформление первой таблицы исходного отчёта.
-    reference = doc.tables[0]._tbl.tblPr
-    table._tbl.replace(table._tbl.tblPr, deepcopy(reference))
-    table.autofit = False
-    for col, width in zip(table.columns, widths):
-        col.width = Twips(width)
-    for i, row in enumerate(rows):
-        for j, text in enumerate(row):
-            cell = table.cell(i, j)
-            cell.width = Twips(widths[j])
-            p = cell.paragraphs[0]
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER if i == 0 else WD_ALIGN_PARAGRAPH.LEFT
-            p.paragraph_format.space_after = Pt(0)
-            p.paragraph_format.line_spacing = 1.0
-            run = p.add_run(text)
-            run.font.size = Pt(11)
-            if i == 0:
-                run.bold = True
-                shade_cell(cell)
-    keep_small_table_together(table)
-    return table
 
 
 def add_text(doc, anchor, text, *, heading=False, center=False, bullet=False,
@@ -428,18 +339,6 @@ def add_text(doc, anchor, text, *, heading=False, center=False, bullet=False,
     run = p.add_run(text)
     run.bold = heading
     return p
-
-
-def add_caption(doc, anchor, text):
-    return add_text(doc, anchor, text, center=True, after=6)
-
-
-def add_table_block(doc, anchor, caption, rows, widths):
-    caption_paragraph = add_caption(doc, anchor, caption)
-    caption_paragraph.paragraph_format.keep_with_next = True
-    table = make_table(doc, rows, widths)
-    anchor._p.addprevious(table._tbl)
-    add_text(doc, anchor, "", center=True)
 
 
 def replace_paragraph_text(paragraph, text):
@@ -502,8 +401,7 @@ def build_report(annotated_png: bytes) -> None:
     if any(p.text.startswith("3. Определение граничных частот") for p in doc.paragraphs):
         raise RuntimeError("В исходном DOCX уже присутствует задание №3")
     anchor = next(p for p in doc.paragraphs if p.text.strip() == "ВЫВОД")
-    # Заключение начинается с новой страницы и не разрывается после первых строк.
-    anchor.paragraph_format.page_break_before = True
+    anchor.paragraph_format.keep_with_next = True
 
     # ------------------------------- задание №3 -------------------------------
     add_text(
@@ -520,9 +418,10 @@ def build_report(annotated_png: bytes) -> None:
         anchor,
         "Граничные частоты определяем по пересечению АЧХ на рисунке 8 с допустимыми "
         "уровнями: для полосы задержания |H| = δ₂ = 0,01 (a = 40 дБ), для полосы "
-        "пропускания |H| = 1 − δ₁ = 0,95. Красным на графике отмечена ПЗ, синим — ПП, "
-        "серым — переходная полоса. Толстые пунктиры соответствуют заданным F₃ и F₁, "
-        "тонкие пунктиры и маркеры — фактическим границам по контрольным уровням.",
+        "пропускания |H| = 1 − δ₁ = 0,95. Короткие линии сверху показывают ПЗ "
+        "(красная), переходную полосу (серая) и ПП (синяя). Сплошные красная и синяя "
+        "вертикали с маркерами соответствуют фактическим границам, синий пунктир — "
+        "заданной F₁, серый пунктир — частоте среза Fc.",
     )
     add_text(
         doc,
@@ -578,43 +477,6 @@ def build_report(annotated_png: bytes) -> None:
         f"{TRANSITION_SPEC:.0f} Гц и уже на {num(TRANSITION_MARGIN, 1)} Гц.",
     )
 
-    add_table_block(
-        doc,
-        anchor,
-        "Таблица 3 – Сравнение граничных частот по АЧХ с домашним расчётом",
-        [
-            ["Величина", "Домашний расчёт", "Шкала скриншота", "После пересчёта", "Отклонение"],
-            [
-                "Граница ПЗ, |H| = 0,01",
-                "F₃ = 1005 Гц",
-                "≈ 4,56 кГц",
-                f"f₃ ≈ {F_STOP_TXT:.0f} Гц",
-                f"+{D_STOP_TXT} Гц (0,2 %)",
-            ],
-            [
-                "Граница ПП, |H| = 0,95",
-                "F₁ = 2520 Гц",
-                "≈ 10,69 кГц",
-                f"f₁ ≈ {F_PASS_TXT:.0f} Гц",
-                f"−{abs(D_PASS_TXT)} Гц (6,3 %)",
-            ],
-            [
-                "Частота среза, |H| = 0,5",
-                "Fc = 1762,5 Гц",
-                "≈ 7,98 кГц",
-                f"≈ {F_CUTOFF_REAL:.0f} Гц",
-                "≈ 0 Гц",
-            ],
-            [
-                "Ширина переходной полосы",
-                "1515 Гц",
-                "≈ 6,13 кГц",
-                f"≈ {TRANSITION_REAL:.0f} Гц",
-                f"−{TRANSITION_MARGIN:.0f} Гц",
-            ],
-        ],
-        [2100, 1750, 1700, 1750, 1900],
-    )
     add_text(
         doc,
         anchor,
@@ -639,77 +501,27 @@ def build_report(annotated_png: bytes) -> None:
     add_text(
         doc,
         anchor,
-        "Импульсная характеристика на рисунке 7 получена как реакция фильтра на "
-        "единичный импульс. Осциллограф соединяет дискретные отсчёты отрезками, поэтому "
-        "плавная линия является только интерполяцией; сравнению подлежат 17 значений "
-        "b(0)…b(16) в узлах.",
+        "На рисунке 7 показаны 17 отсчётов b(0)…b(16); соединяющая их линия является "
+        "только интерполяцией. После b(16) отклик равен нулю, что соответствует "
+        "КИХ-фильтру порядка R = 16 с 16 линиями задержки и без обратных связей.",
     )
     add_text(
         doc,
         anchor,
-        "ИХ конечна: после b(16) отклик становится равным нулю. Это подтверждает, что "
-        "собрана прямая структура КИХ-фильтра порядка R = 16 с 16 линиями задержки, "
-        "17 усилителями и без обратных связей.",
+        "ИХ зеркально симметрична: центральный максимум b(8) = 0,66745283, соседние "
+        "отсчёты b(7) = b(9) = −0,26921926, края b(0) = b(16) = −0,00515576. "
+        f"Симметрия b(i) = b(16 − i) даёт линейную ФЧХ и задержку 8 отсчётов, или "
+        f"{num(GROUP_DELAY_MS, 3)} мс; максимум на восьмом такте совпадает с расчётом.",
     )
     add_text(
         doc,
         anchor,
-        "Форма ИХ зеркально симметрична относительно центрального отсчёта: "
-        "b(8) = 0,66745283 — наибольший положительный пик; "
-        "b(7) = b(9) = −0,26921926 и b(6) = b(10) = −0,12635967 образуют два "
-        "одинаковых отрицательных лепестка; далее следуют малые симметричные отсчёты "
-        "b(4) = b(12) = 0,04715958, b(3) = b(13) = 0,03036013, а края "
-        "b(0) = b(16) = −0,00515576 близки к нулю. Именно такой центральный пик, "
-        "два отрицательных провала и затухающие боковые лепестки видны на рисунке 7.",
-    )
-    add_text(
-        doc,
-        anchor,
-        f"Симметрия b(i) = b(16 − i) соответствует КИХ-фильтру I типа с линейной ФЧХ. "
-        f"Постоянная групповая задержка равна R/2 = 8 отсчётам, или "
-        f"8/Fд = {num(GROUP_DELAY_MS, 3)} мс. Максимум экспериментальной ИХ расположен "
-        "на восьмом такте, что совпадает с расчётом.",
-    )
-    add_text(
-        doc,
-        anchor,
-        f"Для ФВЧ сумма коэффициентов Σb(i) = {num(SUM_B, 7)} ≈ 0, поэтому постоянная "
-        f"составляющая подавляется. На частоте Найквиста |Σb(i)(−1)ⁱ| = "
-        f"{num(abs(ALT_SUM_B), 7)} ≈ 1, что соответствует пропусканию высоких частот. "
-        "Эти свойства согласуются с экспериментальной АЧХ.",
-    )
-
-    add_table_block(
-        doc,
-        anchor,
-        "Таблица 4 – Сопоставление экспериментальной ИХ с домашним расчётом",
-        [
-            ["Характеристика", "Домашний расчёт", "Экспериментальная ИХ"],
-            ["Длительность", "N = 17 отсчётов", "17 отсчётов, затем нулевой отклик"],
-            ["Симметрия", "b(i) = b(16 − i)", "зеркальная относительно b(8)"],
-            ["Центральный максимум", "b(8) = 0,66745283", "положительный пик на 8-м такте"],
-            [
-                "Соседние отсчёты",
-                "b(7) = b(9) = −0,26921926",
-                "два равных отрицательных провала",
-            ],
-            [
-                "Крайние отсчёты",
-                "b(0) = b(16) = −0,00515576",
-                "малые и одинаковые по краям",
-            ],
-            ["Групповая задержка", "8 отсчётов = 0,755 мс", "максимум сдвинут на 8 тактов"],
-        ],
-        [2400, 3300, 3500],
-    )
-    add_text(
-        doc,
-        anchor,
-        "Вертикальная шкала осциллограммы не подписана, поэтому точные амплитуды с неё "
-        "снять нельзя. Однако длительность, положение максимума, симметрия, знаки и "
-        "соотношение основных лепестков полностью совпадают с рассчитанными "
-        "коэффициентами таблицы 2. Следовательно, экспериментальная ИХ подтверждает "
-        "домашний расчёт.",
+        f"Сумма коэффициентов Σb(i) = {num(SUM_B, 7)} ≈ 0 подтверждает подавление "
+        f"постоянной составляющей, а |Σb(i)(−1)ⁱ| = {num(abs(ALT_SUM_B), 7)} ≈ 1 — "
+        "пропускание высоких частот. Вертикальная шкала осциллограммы не подписана, "
+        "поэтому точные амплитуды с неё не снимаются; однако длительность, положение "
+        "максимума, симметрия и знаки лепестков совпадают с коэффициентами таблицы 2. "
+        "Экспериментальная ИХ подтверждает домашний расчёт.",
     )
 
     fix_captions_and_conclusion(doc)
@@ -745,18 +557,16 @@ def validate_output(annotated_png: bytes) -> None:
     assert sum(t.startswith("4. Анализ характера ИХ") for t in texts) == 1
     assert any("с отмеченными ПП и ПЗ" in t for t in texts)
     assert any("48 кГц" in t for t in texts)
-    assert len(doc.tables) == 4
+    # Новых таблиц нет: остаются только две исходные расчётные таблицы.
+    assert len(doc.tables) == 2
 
     conclusion = next(p for p in doc.paragraphs if p.text.strip() == "ВЫВОД")
-    assert conclusion.paragraph_format.page_break_before is True
+    assert conclusion.paragraph_format.keep_with_next is True
     for caption_prefix in ("Рисунок 6", "Рисунок 7", "Рисунок 8"):
         caption = next(p for p in doc.paragraphs if p.text.strip().startswith(caption_prefix))
         image_paragraph = caption._p.getprevious()
         assert image_paragraph is not None and image_paragraph.xpath(".//w:drawing")
         assert image_paragraph.xpath("./w:pPr/w:keepNext")
-    for table in doc.tables[-2:]:
-        assert table.rows[0]._tr.xpath("./w:trPr/w:tblHeader")
-        assert all(row._tr.xpath("./w:trPr/w:cantSplit") for row in table.rows)
 
     with ZipFile(OUTPUT_REPORT, "r") as package:
         assert package.testzip() is None
