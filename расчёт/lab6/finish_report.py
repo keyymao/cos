@@ -3,12 +3,10 @@
 
 Скрипт создаёт отдельную исправленную копию, не изменяя загруженный DOCX:
 
-1. рассчитывает фактические границы ПП/ПЗ по уровням 0,95 и 0,01;
-2. аккуратно размечает экспериментальную АЧХ линиями без перекрытия кривой;
-3. учитывает, что скриншот «Спектр-2» снят при Fд ≈ 48 кГц, тогда как
-   домашний расчёт выполнен для Fд = 10600 Гц;
-4. добавляет лабораторные задания №3 и №4 в компактном текстовом виде;
-5. уточняет подписи экспериментальных ИХ и АЧХ и дополняет вывод.
+1. отмечает ПЗ, ПП и переходную полосу на АЧХ, снятой при Fд = 10600 Гц;
+2. определяет по рисунку граничные частоты на уровнях 0,01, 0,5 и 0,95;
+3. заново добавляет лабораторные задания №3 и №4 под полученные значения;
+4. уточняет подписи экспериментальных ИХ и АЧХ и дополняет вывод.
 
 Зависимости: numpy scipy pillow python-docx.
 """
@@ -38,7 +36,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 CURRENT_DIR = ROOT / "лабораторные" / "текущие" / "лаба6"
 CORRECTED_DIR = ROOT / "лабораторные" / "исправленые" / "лаба6"
-SOURCE_REPORT = CURRENT_DIR / "Лабораторная_работа_№6_вариант_12,_зачётка_06_1.docx"
+SOURCE_REPORT = CURRENT_DIR / "Копировать Лабораторная_работа_№6_вариант_12.docx"
 OUTPUT_REPORT = CORRECTED_DIR / "Лабораторная работа №6 (вариант 12, зачётка 06) — исправленная.docx"
 ANNOTATED_PNG = CORRECTED_DIR / "АЧХ — ЛР6 вариант 12 с отметками ПП и ПЗ.png"
 DATA_FILE = HERE / "variant_data_lab6.json"
@@ -68,30 +66,22 @@ def crossing(level: float, left: float, right: float) -> float:
     return float(brentq(lambda value: float(magnitude(value)) - level, left, right))
 
 
-F_STOP_REAL = crossing(STOP_LEVEL, 900.0, 1150.0)       # 1007,12 Гц
-F_CUTOFF_REAL = crossing(0.5, 1600.0, 1900.0)           # 1762,19 Гц
-F_PASS_REAL = crossing(PASS_LEVEL, 2200.0, 2500.0)      # 2360,48 Гц
-H_AT_F3 = float(magnitude(F3))
-H_AT_F1 = float(magnitude(F1))
-H_AT_FC = float(magnitude(FC))
-A_AT_F3 = -20.0 * math.log10(H_AT_F3)
-A_AT_F1 = -20.0 * math.log10(H_AT_F1)
-A_AT_FC = -20.0 * math.log10(H_AT_FC)
-STOP_MAX = float(DATA["check"]["stop_max"])
-STOP_MAX_F = float(DATA["check"]["stop_max_frequency"])
-PASS_MIN = float(DATA["check"]["pass_min"])
-PASS_MAX = float(DATA["check"]["pass_max"])
-TRANSITION_SPEC = F1 - F3
-TRANSITION_REAL = F_PASS_REAL - F_STOP_REAL
-TRANSITION_MARGIN = TRANSITION_SPEC - TRANSITION_REAL
+# Контрольные пересечения расчётной АЧХ по коэффициентам таблицы 2.
+F_STOP_CALC = crossing(STOP_LEVEL, 900.0, 1150.0)       # 1007,12 Гц
+F_CUTOFF_CALC = crossing(0.5, 1600.0, 1900.0)           # 1762,19 Гц
+F_PASS_CALC = crossing(PASS_LEVEL, 2200.0, 2500.0)      # 2360,48 Гц
 GROUP_DELAY_MS = float(DATA["group_delay"]) / FD * 1000.0
 SUM_B = float(np.sum(B))
 ALT_SUM_B = float(np.sum(B * (-1.0) ** np.arange(B.size)))
 
-# Для текста отчёта график читается примерно до 10 Гц.
-F_STOP_TXT = round(F_STOP_REAL, -1)      # 1010 Гц
-F_PASS_TXT = round(F_PASS_REAL, -1)      # 2360 Гц
-D_PASS_TXT = round(F_PASS_REAL - F1)     # −160 Гц
+# Значения, снятые непосредственно с нового рисунка при Fд = 10600 Гц.
+# Синий курсор установлен на границе ПП и показывает 2,409 кГц; уровни
+# 0,01 и 0,5 отсчитаны относительно установившегося уровня в ПП.
+F_STOP_GRAPH = 990.0
+F_CUTOFF_GRAPH = 1740.0
+F_PASS_GRAPH = 2409.0
+TRANSITION_SPEC = F1 - F3
+TRANSITION_GRAPH = F_PASS_GRAPH - F_STOP_GRAPH
 
 
 def num(value: float, digits: int = 1) -> str:
@@ -99,22 +89,17 @@ def num(value: float, digits: int = 1) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Привязка экспериментального скриншота к частотной оси
+# Привязка нового рисунка АЧХ к частотной оси
 # ---------------------------------------------------------------------------
 
-# На скриншоте зелёный курсор показывает 11,086 кГц на x = 945. Форма АЧХ,
-# положения трёх нулей и частота среза совпадают с расчётной характеристикой
-# после масштабирования частот в 48000/10600 раз. Значит, модель «Спектр-2»
-# была запущена примерно при 48 кГц вместо требуемых 10600 Гц.
-SCREEN_FD = 48000.0
-SCREEN_SCALE = SCREEN_FD / FD
-SCREEN_CURSOR_HZ = 11086.0
-SCREEN_CURSOR_X = 945
-SCREEN_X_RIGHT = 1247
-
-Y_BOT = 882
-Y_REF = 250.04              # максимум АЧХ в ПП по аппроксимации границы заливки
-PX_PER_DB = 5.868            # большая клетка 10 дБ ≈ 58,68 пикселя
+# Курсор на рисунке показывает 2,409 кГц при x = 1560. Частотная шкала уже
+# соответствует Fд = 10600 Гц, поэтому дополнительный пересчёт не требуется.
+GRAPH_CURSOR_HZ = 2409.0
+GRAPH_CURSOR_X = 1560
+GRAPH_X_RIGHT = 2061
+GRAPH_Y_BOTTOM = 1454
+GRAPH_Y_UNITY = 411.0       # установившийся уровень |H| ≈ 1 в ПП
+PX_PER_DB = 9.76            # 10 дБ ≈ 97,6 пикселя
 
 BLUE = (0, 92, 184, 255)
 RED = (198, 40, 40, 255)
@@ -122,28 +107,23 @@ GRAY = (75, 85, 95, 255)
 WHITE = (255, 255, 255, 242)
 
 
-def screen_frequency(design_frequency: float) -> float:
-    """Частота расчёта -> частота, отображённая на ошибочной шкале скриншота."""
-    return design_frequency * SCREEN_SCALE
-
-
-def fx(design_frequency: float) -> int:
-    raw = screen_frequency(design_frequency)
-    return round(raw / SCREEN_CURSOR_HZ * SCREEN_CURSOR_X)
+def fx(frequency: float) -> int:
+    """Переводит частоту в координату x по курсору на рисунке 8."""
+    return round(frequency / GRAPH_CURSOR_HZ * GRAPH_CURSOR_X)
 
 
 def dy(attenuation_db: float) -> int:
-    return round(Y_REF + attenuation_db * PX_PER_DB)
+    return round(GRAPH_Y_UNITY + attenuation_db * PX_PER_DB)
 
 
-X_F3 = fx(F3)
-X_F1 = fx(F1)
-X_FC = fx(FC)
-X_F_STOP_REAL = fx(F_STOP_REAL)
-X_F_PASS_REAL = fx(F_PASS_REAL)
+X_F3_SPEC = fx(F3)
+X_F1_SPEC = fx(F1)
+X_STOP_GRAPH = fx(F_STOP_GRAPH)
+X_CUTOFF_GRAPH = fx(F_CUTOFF_GRAPH)
+X_PASS_GRAPH = fx(F_PASS_GRAPH)
 Y_095 = dy(-20.0 * math.log10(PASS_LEVEL))
+Y_050 = dy(-20.0 * math.log10(0.5))
 Y_40 = dy(40.0)
-Y_FC_CURVE = dy(A_AT_FC)
 
 
 def font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
@@ -208,7 +188,7 @@ def marker(draw, x, y, color, radius=8):
         (x - radius, y - radius, x + radius, y + radius),
         fill=WHITE,
         outline=color,
-        width=4,
+        width=max(4, radius // 2),
     )
 
 
@@ -218,98 +198,117 @@ def double_arrow(draw, x1, x2, y, *, color, width=3, head=12):
     draw.polygon(((x2, y), (x2 - head, y - head // 2), (x2 - head, y + head // 2)), fill=color)
 
 
-def mark_amplitude_response(source: bytes) -> bytes:
+def mark_amplitude_response(source: bytes) -> tuple[bytes, bytes]:
     image = Image.open(io.BytesIO(source)).convert("RGBA")
-    if image.size != (1248, 883):
-        raise RuntimeError(f"Неожиданный размер скриншота АЧХ: {image.size}")
+    if image.size != (2062, 1455):
+        raise RuntimeError(f"Неожиданный размер рисунка АЧХ: {image.size}")
     layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
 
-    # Полосы показаны только короткими цветными линиями в свободной верхней части:
-    # так разметка остаётся заметной, но не закрывает исходную кривую.
-    band_y = 100
-    draw.line((0, band_y, X_F3, band_y), fill=RED, width=6)
-    double_arrow(draw, X_F3, X_F1, band_y, color=GRAY, width=3, head=11)
-    draw.line((X_F1, band_y, SCREEN_X_RIGHT, band_y), fill=BLUE, width=6)
+    # Полосы показаны короткими линиями в свободной верхней части рисунка.
+    band_y = 165
+    draw.line((0, band_y, X_F3_SPEC, band_y), fill=RED, width=9)
+    double_arrow(draw, X_F3_SPEC, X_F1_SPEC, band_y, color=GRAY, width=5, head=17)
+    draw.line((X_F1_SPEC, band_y, GRAPH_X_RIGHT, band_y), fill=BLUE, width=9)
 
-    # Сплошные линии — фактические границы по уровням, пунктир — F₁ по ТЗ и Fc.
-    draw.line((X_F_STOP_REAL, 120, X_F_STOP_REAL, Y_BOT), fill=RED, width=5)
-    draw.line((X_F_PASS_REAL, 120, X_F_PASS_REAL, Y_BOT), fill=BLUE, width=5)
-    dashed_line(draw, (X_F1, 120, X_F1, Y_BOT), fill=BLUE, width=3, dash=14, gap=9)
-    dashed_line(draw, (X_FC, 120, X_FC, Y_BOT), fill=GRAY, width=3, dash=12, gap=9)
+    # Сплошные линии — значения, снятые с рисунка; пунктиры — F₁ и Fc по расчёту.
+    draw.line((X_STOP_GRAPH, 205, X_STOP_GRAPH, GRAPH_Y_BOTTOM), fill=RED, width=8)
+    draw.line((X_PASS_GRAPH, 205, X_PASS_GRAPH, GRAPH_Y_BOTTOM), fill=BLUE, width=8)
+    dashed_line(
+        draw,
+        (X_F1_SPEC, 205, X_F1_SPEC, GRAPH_Y_BOTTOM),
+        fill=BLUE,
+        width=5,
+        dash=23,
+        gap=14,
+    )
+    dashed_line(
+        draw,
+        (X_CUTOFF_GRAPH, 205, X_CUTOFF_GRAPH, GRAPH_Y_BOTTOM),
+        fill=GRAY,
+        width=5,
+        dash=20,
+        gap=14,
+    )
 
-    # Контрольные уровни относительно максимума АЧХ в ПП.
-    draw.line((0, Y_40, X_F_STOP_REAL, Y_40), fill=RED, width=4)
-    draw.line((X_F_PASS_REAL, Y_095, SCREEN_X_RIGHT, Y_095), fill=BLUE, width=4)
+    draw.line((0, Y_40, X_STOP_GRAPH, Y_40), fill=RED, width=7)
+    draw.line((X_PASS_GRAPH, Y_095, GRAPH_X_RIGHT, Y_095), fill=BLUE, width=7)
 
-    marker(draw, X_F_STOP_REAL, Y_40, RED, radius=7)
-    marker(draw, X_FC, Y_FC_CURVE, GRAY, radius=7)
-    marker(draw, X_F_PASS_REAL, Y_095, BLUE, radius=7)
+    marker(draw, X_STOP_GRAPH, Y_40, RED, radius=11)
+    marker(draw, X_CUTOFF_GRAPH, Y_050, GRAY, radius=11)
+    marker(draw, X_PASS_GRAPH, Y_095, BLUE, radius=11)
 
-    f_band = font(19, bold=True)
-    f_value = font(18, bold=True)
+    f_band = font(31, bold=True)
+    f_value = font(29, bold=True)
 
     plain_label(
         draw,
-        ((X_F3 + 0) // 2, 67),
+        (X_F3_SPEC // 2, 110),
         "ПЗ  0…1005 Гц",
         color=RED,
         text_font=f_band,
         anchor="mm",
         align="center",
+        stroke=5,
     )
     plain_label(
         draw,
-        ((X_F3 + X_F1) // 2, 67),
+        ((X_F3_SPEC + X_F1_SPEC) // 2, 110),
         "переходная  1005…2520 Гц",
         color=GRAY,
-        text_font=font(17, bold=True),
+        text_font=font(27, bold=True),
         anchor="mm",
         align="center",
+        stroke=5,
     )
     plain_label(
         draw,
-        ((X_F1 + SCREEN_X_RIGHT) // 2, 67),
+        ((X_F1_SPEC + GRAPH_X_RIGHT) // 2, 110),
         "ПП  f ≥ 2520 Гц",
         color=BLUE,
         text_font=f_band,
         anchor="mm",
         align="center",
+        stroke=5,
     )
 
-    # Только три короткие подписи у контрольных точек — без рамок и выносок.
     plain_label(
         draw,
-        (255, 430),
-        "f₃ ≈ 1007 Гц\n|H| = 0,01",
+        (410, 715),
+        "f₃ ≈ 0,99 кГц\n|H| = 0,01",
         color=RED,
         text_font=f_value,
         anchor="mm",
         align="center",
+        stroke=5,
     )
     plain_label(
         draw,
-        (X_FC, 205),
-        "Fc = 1762,5 Гц",
+        (X_CUTOFF_GRAPH, 350),
+        "Fc ≈ 1,74 кГц",
         color=GRAY,
         text_font=f_value,
         anchor="mm",
         align="center",
+        stroke=5,
     )
     plain_label(
         draw,
-        (1065, 185),
-        "f₁ ≈ 2360 Гц   |H| = 0,95",
+        (1780, 310),
+        "f₁ ≈ 2,409 кГц   |H| = 0,95",
         color=BLUE,
         text_font=f_value,
         anchor="mm",
         align="center",
+        stroke=5,
     )
 
     result = Image.alpha_composite(image, layer).convert("RGB")
-    out = io.BytesIO()
-    result.save(out, format="PNG", optimize=True)
-    return out.getvalue()
+    png = io.BytesIO()
+    jpeg = io.BytesIO()
+    result.save(png, format="PNG", optimize=True)
+    result.save(jpeg, format="JPEG", quality=95, subsampling=0)
+    return png.getvalue(), jpeg.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -384,11 +383,12 @@ def fix_captions_and_conclusion(doc):
         elif text.startswith("Рисунок 8 - АЧХ цифрового ФВЧ"):
             replace_paragraph_text(p, "Рисунок 8 – АЧХ цифрового ФВЧ с отмеченными ПП и ПЗ")
         elif text.startswith("Расчётная АЧХ удовлетворяет заданию:"):
+            if p.runs:
+                p.runs[-1].text = p.runs[-1].text.rstrip()
             p.add_run(
-                " После пересчёта частотной шкалы экспериментальной АЧХ к Fд = 10600 Гц "
-                f"получены f₃ ≈ {F_STOP_TXT:.0f} Гц и f₁ ≈ {F_PASS_TXT:.0f} Гц. "
-                "Экспериментальная ИХ содержит 17 симметричных отсчётов с максимумом "
-                "b(8) = 0,66745283 и соответствует рассчитанным коэффициентам."
+                " По рисунку 8 получены f₃ ≈ 0,99 кГц, Fc ≈ 1,74 кГц и "
+                "f₁ ≈ 2,409 кГц. На рисунке 7 видны 17 симметричных отсчётов "
+                "с максимумом b(8) = 0,66745283, что соответствует расчёту."
             )
 
     keep_figure_with_caption(doc, "Рисунок 6")
@@ -396,7 +396,7 @@ def fix_captions_and_conclusion(doc):
     keep_figure_with_caption(doc, "Рисунок 8")
 
 
-def build_report(annotated_png: bytes) -> None:
+def build_report(annotated_jpeg: bytes) -> None:
     doc = Document(str(SOURCE_REPORT))
     if any(p.text.startswith("3. Определение граничных частот") for p in doc.paragraphs):
         raise RuntimeError("В исходном DOCX уже присутствует задание №3")
@@ -416,77 +416,42 @@ def build_report(annotated_png: bytes) -> None:
     add_text(
         doc,
         anchor,
-        "Граничные частоты определяем по пересечению АЧХ на рисунке 8 с допустимыми "
-        "уровнями: для полосы задержания |H| = δ₂ = 0,01 (a = 40 дБ), для полосы "
-        "пропускания |H| = 1 − δ₁ = 0,95. Короткие линии сверху показывают ПЗ "
-        "(красная), переходную полосу (серая) и ПП (синяя). Сплошные красная и синяя "
-        "вертикали с маркерами соответствуют фактическим границам, синий пунктир — "
-        "заданной F₁, серый пунктир — частоте среза Fc.",
+        "По рисунку 8 определяем границы полос по заданным уровням. Для ПЗ берём "
+        "|H| = 0,01, что соответствует ослаблению 40 дБ относительно уровня в ПП. "
+        "Для ПП используется уровень |H| = 0,95. Частотная ось построена при "
+        "Fд = 10600 Гц, поэтому значения считываются с рисунка без пересчёта.",
     )
     add_text(
         doc,
         anchor,
-        "На исходном скриншоте зелёный курсор показывает 11,086 кГц, а форма АЧХ и "
-        "положения её нулей совпадают с расчётом после масштабирования частот в "
-        "48000/10600 ≈ 4,528 раза. Следовательно, модель «Спектр-2» была запущена при "
-        "частоте дискретизации около 48 кГц вместо требуемых 10600 Гц. Поэтому для "
-        "сравнения с домашним заданием показания экранной шкалы разделены на 4,528. "
-        "При повторении эксперимента следует установить Fд = 10600 Гц.",
-    )
-    add_text(
-        doc,
-        anchor,
-        f"– граница ПЗ по уровню |H| = 0,01 получилась на экранной шкале около "
-        f"{num(screen_frequency(F_STOP_REAL) / 1000, 2)} кГц, что после пересчёта даёт "
-        f"f₃ = {num(F_STOP_REAL, 1)} Гц ≈ {F_STOP_TXT:.0f} Гц;",
+        "– граница полосы задержания по уровню |H| = 0,01: "
+        "f₃ ≈ 0,99 кГц (990 Гц);",
         bullet=True,
     )
     add_text(
         doc,
         anchor,
-        f"– граница ПП по уровню |H| = 0,95 получилась на экранной шкале около "
-        f"{num(screen_frequency(F_PASS_REAL) / 1000, 2)} кГц, после пересчёта "
-        f"f₁ = {num(F_PASS_REAL, 1)} Гц ≈ {F_PASS_TXT:.0f} Гц;",
+        "– граница полосы пропускания по уровню |H| = 0,95: "
+        "f₁ ≈ 2,409 кГц;",
         bullet=True,
     )
     add_text(
         doc,
         anchor,
-        f"– частота среза по уровню |H| = 0,5 равна {num(F_CUTOFF_REAL, 1)} Гц и "
-        f"практически совпадает с расчётной Fc = {num(FC, 1)} Гц;",
+        "– частота среза по уровню |H| = 0,5: Fc ≈ 1,74 кГц.",
         bullet=True,
     )
     add_text(
         doc,
         anchor,
-        f"– при F₃ = {F3:.0f} Гц получено |H| = {num(H_AT_F3, 6)} "
-        f"(a = {num(A_AT_F3, 3)} дБ), а при F₁ = {F1:.0f} Гц — "
-        f"|H| = {num(H_AT_F1, 6)} (a = {num(A_AT_F1, 3)} дБ). Оба требования "
-        "выполняются с запасом.",
-        bullet=True,
-    )
-    add_text(
-        doc,
-        anchor,
-        f"Сравнение с домашним заданием. Фактическая граница ПЗ отличается от "
-        f"F₃ = {F3:.0f} Гц всего на +{num(F_STOP_REAL - F3, 1)} Гц; ПЗ фильтра "
-        "продолжается немного дальше заданной границы. Уровень 0,95 достигается при "
-        f"{num(F_PASS_REAL, 1)} Гц, то есть ПП начинается на "
-        f"{abs(D_PASS_TXT):.0f} Гц раньше заданной F₁ = {F1:.0f} Гц. Переходная "
-        f"полоса по допускам равна {num(TRANSITION_REAL, 1)} Гц вместо расчётных "
-        f"{TRANSITION_SPEC:.0f} Гц и уже на {num(TRANSITION_MARGIN, 1)} Гц.",
-    )
-
-    add_text(
-        doc,
-        anchor,
-        "Небольшой запас по границам обусловлен выбором минимального чётного порядка "
-        "R = 16 и окном Кайзера с β = 3,395321. В ПЗ максимальный уровень равен "
-        f"{num(STOP_MAX, 6)} на частоте {STOP_MAX_F:.0f} Гц, что соответствует "
-        f"подавлению {num(A_AT_F3, 3)} дБ ≥ 40 дБ. В ПП характеристика лежит в "
-        f"диапазоне {num(PASS_MIN, 6)}…{num(PASS_MAX, 6)}, полностью внутри допуска "
-        "0,95…1,05. После исправления масштаба экспериментальная АЧХ подтверждает "
-        "результаты домашнего расчёта.",
+        f"В домашнем расчёте получены F₃ = {F3:.0f} Гц, F₁ = {F1:.0f} Гц и "
+        f"Fc = {num(FC, 1)} Гц. По рисунку граница ПЗ ниже расчётной на "
+        f"{abs(F_STOP_GRAPH - F3):.0f} Гц (1,5 %), граница ПП — на "
+        f"{abs(F_PASS_GRAPH - F1):.0f} Гц (4,4 %), а частота среза — на "
+        f"{num(abs(F_CUTOFF_GRAPH - FC), 1)} Гц (1,3 %). Ширина переходной полосы "
+        f"составляет примерно {TRANSITION_GRAPH:.0f} Гц вместо {TRANSITION_SPEC:.0f} Гц, "
+        f"то есть она уже на {TRANSITION_SPEC - TRANSITION_GRAPH:.0f} Гц. "
+        "Расхождение небольшое и связано с точностью снятия значений по рисунку.",
     )
 
     # ------------------------------- задание №4 -------------------------------
@@ -501,27 +466,28 @@ def build_report(annotated_png: bytes) -> None:
     add_text(
         doc,
         anchor,
-        "На рисунке 7 показаны 17 отсчётов b(0)…b(16); соединяющая их линия является "
-        "только интерполяцией. После b(16) отклик равен нулю, что соответствует "
-        "КИХ-фильтру порядка R = 16 с 16 линиями задержки и без обратных связей.",
+        "На рисунке 7 виден один основной положительный отсчёт и симметричные "
+        "отрицательные лепестки по обе стороны от него. ИХ заканчивается после "
+        "семнадцатого отсчёта, поэтому фильтр является КИХ-фильтром порядка R = 16.",
     )
     add_text(
         doc,
         anchor,
-        "ИХ зеркально симметрична: центральный максимум b(8) = 0,66745283, соседние "
-        "отсчёты b(7) = b(9) = −0,26921926, края b(0) = b(16) = −0,00515576. "
-        f"Симметрия b(i) = b(16 − i) даёт линейную ФЧХ и задержку 8 отсчётов, или "
-        f"{num(GROUP_DELAY_MS, 3)} мс; максимум на восьмом такте совпадает с расчётом.",
+        "По расчёту центральный коэффициент b(8) = 0,66745283, соседние коэффициенты "
+        "b(7) = b(9) = −0,26921926, b(6) = b(10) = −0,12635967, а крайние "
+        "b(0) = b(16) = −0,00515576. На рисунке положение максимума, знаки лепестков "
+        "и симметрия совпадают с этими значениями. Точные амплитуды не снимаются, "
+        "так как вертикальная шкала не подписана.",
     )
     add_text(
         doc,
         anchor,
-        f"Сумма коэффициентов Σb(i) = {num(SUM_B, 7)} ≈ 0 подтверждает подавление "
-        f"постоянной составляющей, а |Σb(i)(−1)ⁱ| = {num(abs(ALT_SUM_B), 7)} ≈ 1 — "
-        "пропускание высоких частот. Вертикальная шкала осциллограммы не подписана, "
-        "поэтому точные амплитуды с неё не снимаются; однако длительность, положение "
-        "максимума, симметрия и знаки лепестков совпадают с коэффициентами таблицы 2. "
-        "Экспериментальная ИХ подтверждает домашний расчёт.",
+        f"Симметрия b(i) = b(16 − i) обеспечивает линейную ФЧХ и задержку "
+        f"8 отсчётов ({num(GROUP_DELAY_MS, 3)} мс). Значения "
+        f"Σb(i) = {num(SUM_B, 7)} ≈ 0 и |Σb(i)(−1)ⁱ| = "
+        f"{num(abs(ALT_SUM_B), 7)} ≈ 1 подтверждают подавление постоянной "
+        "составляющей и пропускание высоких частот. Характер ИХ на рисунке 7 "
+        "соответствует домашнему расчёту.",
     )
 
     fix_captions_and_conclusion(doc)
@@ -534,10 +500,10 @@ def build_report(annotated_png: bytes) -> None:
         doc.save(str(tmp_path))
         with ZipFile(tmp_path, "r") as zin, ZipFile(package_path, "w", compression=ZIP_DEFLATED) as zout:
             names = set(zin.namelist())
-            if "word/media/image6.png" not in names:
-                raise RuntimeError("В сохранённом DOCX не найдена часть image6.png")
+            if "word/media/image6.jpeg" not in names:
+                raise RuntimeError("В сохранённом DOCX не найдена часть image6.jpeg")
             for item in zin.infolist():
-                data = annotated_png if item.filename == "word/media/image6.png" else zin.read(item.filename)
+                data = annotated_jpeg if item.filename == "word/media/image6.jpeg" else zin.read(item.filename)
                 zout.writestr(item, data)
         with ZipFile(package_path, "r") as check:
             bad = check.testzip()
@@ -550,13 +516,16 @@ def build_report(annotated_png: bytes) -> None:
         package_path.unlink(missing_ok=True)
 
 
-def validate_output(annotated_png: bytes) -> None:
+def validate_output(annotated_png: bytes, annotated_jpeg: bytes) -> None:
     doc = Document(str(OUTPUT_REPORT))
     texts = [p.text for p in doc.paragraphs]
+    full_text = "\n".join(texts).lower()
     assert sum(t.startswith("3. Определение граничных частот") for t in texts) == 1
     assert sum(t.startswith("4. Анализ характера ИХ") for t in texts) == 1
     assert any("с отмеченными ПП и ПЗ" in t for t in texts)
-    assert any("48 кГц" in t for t in texts)
+    assert "2,409 кГц" in "\n".join(texts)
+    assert "скриншот" not in full_text
+    assert "48 кГц" not in full_text
     # Новых таблиц нет: остаются только две исходные расчётные таблицы.
     assert len(doc.tables) == 2
 
@@ -568,9 +537,10 @@ def validate_output(annotated_png: bytes) -> None:
         assert image_paragraph is not None and image_paragraph.xpath(".//w:drawing")
         assert image_paragraph.xpath("./w:pPr/w:keepNext")
 
+    assert ANNOTATED_PNG.read_bytes() == annotated_png
     with ZipFile(OUTPUT_REPORT, "r") as package:
         assert package.testzip() is None
-        assert package.read("word/media/image6.png") == annotated_png
+        assert package.read("word/media/image6.jpeg") == annotated_jpeg
 
 
 def main() -> None:
@@ -578,25 +548,24 @@ def main() -> None:
         raise FileNotFoundError(SOURCE_REPORT)
     source_digest = sha256(SOURCE_REPORT.read_bytes()).digest()
     with ZipFile(SOURCE_REPORT, "r") as docx:
-        source_png = docx.read("word/media/image6.png")
-    annotated = mark_amplitude_response(source_png)
+        source_jpeg = docx.read("word/media/image6.jpeg")
+    annotated_png, annotated_jpeg = mark_amplitude_response(source_jpeg)
     CORRECTED_DIR.mkdir(parents=True, exist_ok=True)
-    ANNOTATED_PNG.write_bytes(annotated)
-    build_report(annotated)
-    validate_output(annotated)
+    ANNOTATED_PNG.write_bytes(annotated_png)
+    build_report(annotated_jpeg)
+    validate_output(annotated_png, annotated_jpeg)
     assert sha256(SOURCE_REPORT.read_bytes()).digest() == source_digest
 
     print(f"Исходный отчёт сохранён без изменений: {SOURCE_REPORT}")
     print(f"Исправленный отчёт: {OUTPUT_REPORT}")
     print(f"Размеченная АЧХ: {ANNOTATED_PNG}")
     print(
-        f"f₃ (0,01) = {F_STOP_REAL:.2f} Гц; "
-        f"f₁ (0,95) = {F_PASS_REAL:.2f} Гц; "
-        f"Fc (0,5) = {F_CUTOFF_REAL:.2f} Гц"
+        f"По рисунку: f₃ ≈ {F_STOP_GRAPH:.0f} Гц; "
+        f"f₁ ≈ {F_PASS_GRAPH:.0f} Гц; Fc ≈ {F_CUTOFF_GRAPH:.0f} Гц"
     )
     print(
-        f"|H(F₃)| = {H_AT_F3:.6f} ({A_AT_F3:.3f} дБ); "
-        f"|H(F₁)| = {H_AT_F1:.6f} ({A_AT_F1:.3f} дБ)"
+        f"По расчёту: f₃ = {F_STOP_CALC:.2f} Гц; "
+        f"f₁ = {F_PASS_CALC:.2f} Гц; Fc = {F_CUTOFF_CALC:.2f} Гц"
     )
 
 
