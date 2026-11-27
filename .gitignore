@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.cache/
 контрольные/output/
 контрольные/вариант 10/output/
 контрольные/вариант 10/kr2_input.wav
